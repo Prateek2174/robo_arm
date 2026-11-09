@@ -1,0 +1,4 @@
+"""Optional: generate can_protocol.h from arm.dbc.
+Module: #22   Milestone: M2
+TODO: implement (see robot-arm-todo.md for the 'done when' criteria).
+"""

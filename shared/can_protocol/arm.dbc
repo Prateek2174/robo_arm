@@ -1,0 +1,9 @@
+VERSION "0.1"
+
+NS_ :
+
+BS_:
+
+BU_: PC JOINT POWER
+
+CM_ "Source of truth for every CAN message, signal, scaling and unit. Module #22, milestone M2. TODO: define messages.";

@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>arm_vision</name>
+  <version>0.0.1</version>
+  <description>Cup/glass detection, target estimation, hand-eye calibration.</description>
+  <maintainer email="prateek.singh2174@gmail.com">Prateek Singh</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+  <!-- TODO: add <depend> entries as the code needs them -->
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

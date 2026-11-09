@@ -1,0 +1,16 @@
+# Personal notes
+private-notes.md
+# Rust
+target/
+# ROS 2 / colcon
+build/
+install/
+log/
+# Python
+__pycache__/
+*.pyc
+.venv/
+# STM32 / CMake builds
+Debug/
+Release/
+cmake-build-*/
