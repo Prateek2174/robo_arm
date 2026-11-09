@@ -1,3 +1,21 @@
 // Clarke, Park, inverse Park, SVPWM, sin/cos. NO HAL CALLS (host-testable).
 // Module: #6   Milestone: M1-M2
 // TODO: implement (see robot-arm-todo.md for the 'done when' criteria).
+
+#include "foc_math.h"
+
+#define ONE_OVER_SQRT3 0.57735027f
+
+void clarke(const abc_t *abc, const alpha_beta_t *alpha_beta){
+
+    alpha_beta->alpha = abc->a;
+    alpha_beta->beta = (2*abc->b + abc->a) / ONE_OVER_SQRT3;
+
+}
+
+void park(const alpha_beta_t *alpha_beta, const dq_t *dq, float theta){
+
+    dq->d = ;
+    dq->q = ;
+
+}
