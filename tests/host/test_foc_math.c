@@ -3,8 +3,10 @@
 
 #include "unity.h"
 #include "foc_math.h"
+#include <math.h>
 
 #define TOL 1e-4f
+#define PI_F 3.14159265f
 
 // Unity calls these around every test. Nothing to set up for pure math.
 void setUp(void) {}
@@ -44,7 +46,71 @@ static void test_clarke_phase_c_peak(void)
     TEST_ASSERT_FLOAT_WITHIN(TOL, -0.866f, out.beta);
 }
 
-// TODO(Prateek): 360 degree magnitude sweep.
+// Balanced phases at any angle: the (alpha, beta) vector stays the length of one phase's peak.
+static void test_clarke_balanced_sweep_magnitude(void)
+{
+    const float peak = 2.0f;
+
+    for (int deg = 0; deg < 360; deg++) {
+        float theta = (float)deg * PI_F / 180.0f;
+
+        abc_t in = {
+            .a = peak * cosf(theta),
+            .b = peak * cosf(theta - 2.0f * PI_F / 3.0f),
+            .c = peak * cosf(theta + 2.0f * PI_F / 3.0f),
+        };
+        alpha_beta_t out;
+
+        clarke(&in, &out);
+
+        float magnitude = sqrtf(out.alpha * out.alpha + out.beta * out.beta);
+        TEST_ASSERT_FLOAT_WITHIN(TOL, peak, magnitude);
+    }
+}
+
+static void test_park_alpha_zero_angle(void)
+{
+    alpha_beta_t in = { .alpha = 1.0f, .beta = 0.0f };
+    float theta = 0.0f;
+    sin_cos_t sc;
+    theta_to_sin_cos(theta, &sc);
+    dq_t out;
+
+    park(&in, &out, &sc);
+
+    TEST_ASSERT_FLOAT_WITHIN(TOL, 1.0f, out.d);
+    TEST_ASSERT_FLOAT_WITHIN(TOL, 0.0f, out.q);
+}
+
+static void test_park_beta_zero_angle(void)
+{
+    alpha_beta_t in = { .alpha = 0.0f, .beta = 1.0f };
+    float theta = 0.0f;
+    sin_cos_t sc;
+    theta_to_sin_cos(theta, &sc);
+    dq_t out;
+
+    park(&in, &out, &sc);
+
+    TEST_ASSERT_FLOAT_WITHIN(TOL, 0.0f, out.d);
+    TEST_ASSERT_FLOAT_WITHIN(TOL, 1.0f, out.q);
+}
+
+static void test_park_alpha_90_angle(void)
+{
+    alpha_beta_t in = { .alpha = 1.0f, .beta = 0.0f };
+    float theta = PI_F / 2.0f;
+    sin_cos_t sc;
+    theta_to_sin_cos(theta, &sc);
+    dq_t out;
+
+    park(&in, &out, &sc);
+
+    TEST_ASSERT_FLOAT_WITHIN(TOL, 0.0f, out.d);
+    TEST_ASSERT_FLOAT_WITHIN(TOL, -1.0f, out.q);
+}
+
+
 
 int main(void)
 {
@@ -52,5 +118,9 @@ int main(void)
     RUN_TEST(test_clarke_phase_a_peak);
     RUN_TEST(test_clarke_phase_b_peak);
     RUN_TEST(test_clarke_phase_c_peak);
+    RUN_TEST(test_clarke_balanced_sweep_magnitude);
+    RUN_TEST(test_park_alpha_zero_angle);
+    RUN_TEST(test_park_beta_zero_angle);
+    RUN_TEST(test_park_alpha_90_angle);
     return UNITY_END();
 }

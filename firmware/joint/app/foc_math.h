@@ -27,8 +27,16 @@ typedef struct {
 
 } dq_t;
 
-void clarke(const abc_t *abc, const alpha_beta_t *alpha_beta);
-void park(const alpha_beta_t *alpha_beta, const dq_t *dq. float theta);
+typedef struct {
+
+    float s;
+    float c;
+
+} sin_cos_t;
+
+void theta_to_sin_cos(float theta, sin_cos_t *sc);
+void clarke(const abc_t *abc, alpha_beta_t *alpha_beta);
+void park(const alpha_beta_t *alpha_beta, dq_t *dq, const sin_cos_t *sc);
 
 
 #endif // FOC_MATH_H
