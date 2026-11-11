@@ -7,26 +7,64 @@
 
 #include "pi_controller.h"
 
-static const pi_controller_config_t default_pi_controller_config = {
-    .Kp = 1.0f,
-    .Ki = 0.1f,
-    .u_min = -10.0f,
-    .u_max = 10.0f,
-    .Ts = 0.01f,
-};
-
 void pi_controller_reset(pi_controller_t *controller){
-
+    controller->I = 0.0f;
+    controller->prev_error = 0.0f;
 }
 
 void pi_controller_init(pi_controller_t *controller, const pi_controller_config_t *config){
-
+    controller->Kp = config->Kp;
+    controller->Ki = config->Ki;
+    controller->u_min = config->u_min;
+    controller->u_max = config->u_max;
+    controller->Ts = config->Ts;
+    pi_controller_reset(controller);
 }
 
 float pi_controller_update(pi_controller_t *controller, float error){   //return u as a float, in output units (volts or amps)
     
+    float proportional = controller->Kp * error;
+    controller->I += 0.5f * controller->Ki * controller->Ts * (error + controller->prev_error); //trapezoidal integration
+
+    //Anti-windup wih dynamic integrator clamping
+
+    float max_limit_integrator;
+    float min_limit_integrator;
+
+    if (controller->u_max > proportional){
+        max_limit_integrator = controller->u_max - proportional;
+    } else {
+        max_limit_integrator = 0.0f;
+    }
+
+    if (controller->u_min < proportional){
+        min_limit_integrator = controller->u_min - proportional;
+    } else {
+        min_limit_integrator = 0.0f;
+    }
+
+    //Clamp integrator
+    if (controller->I > max_limit_integrator){
+        controller->I = max_limit_integrator;
+    } else if (controller->I < min_limit_integrator){
+        controller->I = min_limit_integrator;
+    }
+
+    //Compute output
+    float u = proportional + controller->I;
+
+    //Apply output limits
+    if (u > controller->u_max){
+        u = controller->u_max;
+    } else if (u < controller->u_min){
+        u = controller->u_min;
+    }
+
+    controller->prev_error = error;
+    return u;
 }
 
 void pi_controller_set_limits(pi_controller_t *controller, float u_min, float u_max){
-    
+    controller->u_min = u_min;
+    controller->u_max = u_max;
 }

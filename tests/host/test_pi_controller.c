@@ -10,6 +10,14 @@
 void setUp(void) {}
 void tearDown(void) {}
 
+static const pi_controller_config_t default_pi_controller_config = {
+    .Kp = 2.0f,
+    .Ki = 100.0f,
+    .u_min = -10.0f,
+    .u_max = 10.0f,
+    .Ts = 0.001f,
+};
+
 static void test_pi_only(void)
 {
     pi_controller_t controller;
