@@ -2,5 +2,6 @@
   "rust-analyzer.linkedProjects": [
     "rust-practice/Cargo.toml",
     "rust-practice/firmware/Cargo.toml"
-  ]
+  ],
+  "cmake.sourceDirectory": "/home/prate/robo_arm/tests/host"
 }

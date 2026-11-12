@@ -124,8 +124,8 @@ typedef struct {
 //========================================================
 
 void can_pack_heartbeat(can_heartbeat_t *heartbeat, uint8_t *out_buffer, uint8_t *out_size);
-void can_pack(can_t *can_msg, const void *payload, uint8_t payload_size, uint8_t *out_buffer, uint8_t *out_size);
-bool can_unpack(const uint8_t *buffer, uint8_t size, can_t *out_can_msg, void *out_payload, uint8_t *out_payload_size);
+// void can_pack(can_t *can_msg, const void *payload, uint8_t payload_size, uint8_t *out_buffer, uint8_t *out_size);
+// bool can_unpack(const uint8_t *buffer, uint8_t size, can_t *out_can_msg, void *out_payload, uint8_t *out_payload_size);
 
 
 #endif // CAN_PROTOCOL_H

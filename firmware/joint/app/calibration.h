@@ -5,4 +5,6 @@
 #ifndef CALIBRATION_H
 #define CALIBRATION_H
 
+void calibration_is_valid(void);
+
 #endif // CALIBRATION_H
