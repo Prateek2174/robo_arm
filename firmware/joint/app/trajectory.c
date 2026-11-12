@@ -24,7 +24,26 @@ bool trajectory_plan(trajectory_plan_t *plan, float d_start, float d_end, const 
 
     //Decide between trapezoidal or triangle movement -> calc the required phase times
 
+    //min displacement required to reach cruising speed which is integral of the velocity slopes:
+    float dx_min = 1.0f * plan->t_a * plan->v_peak;
+
+    //check to ensure enough displacement to reach cruising speed:
+    if (s*dx < s*dx_min) //Use triangle profile
+    {
+        plan->v_peak = sqrt(plan->a * abs(dx));
+        plan->t_a = max(0.0f, plan->v_peak / plan->a);
+        plan->t_v = 0.0f;
+
+    }else
+    {              //Use trapezoidal profile
+        plan->t_v = (dx - dx_min) / plan->v_peak;
+
+    }
     
+    plan->t_f = plan->t_a + plan->t_v;
+    plan->y_a = plan->x_i + 0.5f*plan->a*plan->t_a*plan->t_a;
+
+    return true;
 }
 
 //instant at time t since the move started
@@ -49,7 +68,7 @@ trajectory_instant_t trajectory_sample(const trajectory_plan_t *plan, float t){
 
     }else if (t < plan->t_a) //positive accel before cruise
     { 
-        instant.d = plan->x_i + 0.5*plan->a*pow(t, 2);
+        instant.d = plan->x_i + 0.5*plan->a*t*t;
         instant.a = plan->a;
         instant.v = plan->a * t;
 
@@ -61,7 +80,7 @@ trajectory_instant_t trajectory_sample(const trajectory_plan_t *plan, float t){
 
     }else if (t < plan->t_f) //decel
     {
-        instant.d = plan->x_f - 0.5*plan->a*pow((plan->t_f - t),2);
+        instant.d = plan->x_f - 0.5*plan->a*(plan->t_f - t)*(plan->t_f - t);
         instant.a = -1*plan->a;
         instant.v = plan->a * (plan->t_f - t);
     }
