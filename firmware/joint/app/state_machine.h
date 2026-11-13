@@ -13,11 +13,11 @@
 //rejected request is ignored and returns error so it can be reported over CAN
 
 typedef enum {
-    STATE_IDLE = 0,
-    STATE_CALIBRATING = 1, //CALIBRATION -> IDLE 
-    STATE_ARMED = 2, //gates enabled and current loop running at 0 current
-    STATE_RUNNING = 3,
-    STATE_FAULT = 4,
+    STATE_IDLE          = 0,
+    STATE_CALIBRATING   = 1, //CALIBRATION -> IDLE 
+    STATE_ARMED         = 2, //gates enabled and current loop running at 0 current
+    STATE_RUNNING       = 3,
+    STATE_FAULT         = 4,
 } joint_state_t;
 
 typedef enum {
@@ -42,6 +42,5 @@ joint_state_t state_machine_get_state(void);
 bool state_machine_request_event(joint_event_t event);
 void state_machine_enter_fault(void);
 void state_machine_state_name(joint_state_t state, char *out_name, size_t out_size);
-
 
 #endif // STATE_MACHINE_H

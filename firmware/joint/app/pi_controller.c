@@ -7,12 +7,14 @@
 
 #include "pi_controller.h"
 
-void pi_controller_reset(pi_controller_t *controller){
+void pi_controller_reset(pi_controller_t *controller)
+{
     controller->I = 0.0f;
     controller->prev_error = 0.0f;
 }
 
-void pi_controller_init(pi_controller_t *controller, const pi_controller_config_t *config){
+void pi_controller_init(pi_controller_t *controller, const pi_controller_config_t *config)
+{
     controller->Kp = config->Kp;
     controller->Ki = config->Ki;
     controller->u_min = config->u_min;
@@ -21,8 +23,8 @@ void pi_controller_init(pi_controller_t *controller, const pi_controller_config_
     pi_controller_reset(controller);
 }
 
-float pi_controller_update(pi_controller_t *controller, float error){   //return u as a float, in output units (volts or amps)
-    
+float pi_controller_update(pi_controller_t *controller, float error)
+{   //return u as a float, in output units (volts or amps)    
     float proportional = controller->Kp * error;
     controller->I += 0.5f * controller->Ki * controller->Ts * (error + controller->prev_error); //trapezoidal integration
 
@@ -64,7 +66,8 @@ float pi_controller_update(pi_controller_t *controller, float error){   //return
     return u;
 }
 
-void pi_controller_set_limits(pi_controller_t *controller, float u_min, float u_max){
+void pi_controller_set_limits(pi_controller_t *controller, float u_min, float u_max)
+{
     controller->u_min = u_min;
     controller->u_max = u_max;
 }

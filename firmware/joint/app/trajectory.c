@@ -8,8 +8,8 @@
 //Plan a move for the join that starts/ends at rest.
 //Return false (plan unchanged) -> if(limits are <=0 OR NaN OR infinite OR positions arent finite)
 //v_i = 0 always
-bool trajectory_plan(trajectory_plan_t *plan, float d_start, float d_end, const trajectry_limits_t *limit){
-
+bool trajectory_plan(trajectory_plan_t *plan, float d_start, float d_end, const trajectry_limits_t *limit)
+{
     plan->x_f = d_end;
     plan->x_i = d_start;
     float dx = plan->x_f - plan->x_i; //change in d
@@ -50,8 +50,8 @@ bool trajectory_plan(trajectory_plan_t *plan, float d_start, float d_end, const 
 //t <0 returns the start
 //t >= duration returns the exact end with v = a = 0
 //Callers compute t from an integer tick count: t = (float)n * dt
-trajectory_instant_t trajectory_sample(const trajectory_plan_t *plan, float t){
-
+trajectory_instant_t trajectory_sample(const trajectory_plan_t *plan, float t)
+{
     trajectory_instant_t instant; 
 
     if (t <= 0) //initial or before start
@@ -89,8 +89,9 @@ trajectory_instant_t trajectory_sample(const trajectory_plan_t *plan, float t){
 }
 
 //Total move time (s).
-//Also let caller know the move is done
-float trajectory_duration(const trajectory_plan_t *plan){
-
-
+//Also let caller know the move is done------------------how?
+float trajectory_duration(const trajectory_plan_t *plan)
+{
+    return plan->t_a + plan->t_v;
+    
 }
