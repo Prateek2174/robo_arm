@@ -1,5 +1,7 @@
-# Personal notes
+# Personal notes and planning (local only)
 private-notes.md
+robot-arm-handoff.md
+robot-arm-todo.md
 # Rust
 target/
 # ROS 2 / colcon

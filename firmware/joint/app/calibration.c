@@ -3,10 +3,10 @@
 // TODO: implement (see robot-arm-todo.md for the 'done when' criteria).
 
 #include "calibration.h"
-#include "math.h"
+#include <math.h>
 
 #define PI_F 3.14159265f
-#define R_THRESH 0.95
+#define R_THRESH 0.95f
 
 void calibration_travel_reset(calibration_travel_t *travel)
 { 
@@ -26,14 +26,48 @@ void calibration_travel_add(calibration_travel_t *travel, float theta_m)
 }
 
 calibration_result_t calibration_detect_direction(float travel_m, float min_travel_m, int8_t *dir)
-{    //6a. s = sign(T_m)
-    //compute direction but reject if there is no motion
+{   
+    calibration_result_t result;
+    if (fasbf(travel_m) < min_travel_m)
+    {
+        result = CALIBRATION_ERR_NO_MOTION;
+    }
+    else
+    {
+        *dir = travel_m > 0.0f ? 1 : -1;
+        result = CALIBRATION_OK;
+    }
 
+    return result;
 }
 
 calibration_result_t calibration_estimate_pole_pairs(float travel_e, float travel_m, float tolerance, uint8_t *pole_pairs)
 { 
-    //6b. p̂ = T_e / |T_m|, then round and check
+    calibration_result_t result;
+    float pp_estimate;
+    pp_estimate = travel_e / fabsf(travel_m);
+    uint8_t pp_temp = roundf(pp_estimate);
+
+    //check if travel_m is near 0
+    if (travel_m <= )
+    {
+        result = CALIBRATION_ERR_NO_MOTION;
+    }
+    else if (abs(pp_estimate - pp_temp) > tolerance)
+    {
+        result = CALIBRATION_ERR_POLE_PAIRS;
+    }
+    else if (pp_temp < 1 || pp_temp > 50)
+    {
+        result = CALIBRATION_ERR_SPREAD;
+    }
+    else
+    {
+        result = CALIBRATION_OK;
+        *pole_pairs = pp_temp;
+    }
+
+    return result;
 }
 
 void calibration_circular_reset(calibration_circular_t *cir)
