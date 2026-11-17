@@ -53,10 +53,15 @@
 // If the result of step 1 was 1, XOR in 0b000011
 // After 18 bits, the register must equal C5..C0. Write crc6() and parse_frame() as pure functions so tests/host can test them.
 
+#define ENCODER_MG_OVERSPEED_Msk 0x8
+#define ENCODER_MG_FIELD_Msk 0x3
+#define ENCODER_MG_FIELD_STRONG 1 
+#define ENCODER_MG_FIELD_WEAK 2
+
 typedef struct {
-    uint16_t data;  // Bit 18-23: 14-bit Angle Data D[13:0]
-    uint8_t  mg;    // Bit 14-17: 4-bit Magnetic Field Status Mg[3:0]
-    uint8_t  crc;   // Bit 0-13: 6-bit CRC Code CRC[5:0] 
+    uint16_t data;  // Bit 23-10: 14-bit Angle Data D[13:0]
+    uint8_t  mg;    // Bit 9-6: 4-bit Magnetic Field Status Mg[3:0]
+    uint8_t  crc;   // Bit 5-0: 6-bit CRC Code CRC[5:0] 
 } encoder_frame_t;
 
 typedef enum {

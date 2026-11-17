@@ -110,8 +110,6 @@ static void test_park_alpha_90_angle(void)
     TEST_ASSERT_FLOAT_WITHIN(TOL, -1.0f, out.q);
 }
 
-
-
 int main(void)
 {
     UNITY_BEGIN();

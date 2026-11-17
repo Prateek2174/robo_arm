@@ -2,6 +2,7 @@
 // Module: #4   Milestone: M1-M2
 
 #include "encoder_mt6701.h"
+#include <math.h>
 
 #define PI_F 3.14159265f
 
@@ -9,7 +10,7 @@
 uint8_t encoder_crc6(uint32_t data_18)
 {
     // mask the input to 18 bits
-    data_18 = data_18 & 0x0001FFFF;
+    data_18 = data_18 & 0x3FFFF;
     uint8_t crc = 0x00;
     uint8_t temp = 0x00;
     
@@ -18,13 +19,13 @@ uint8_t encoder_crc6(uint32_t data_18)
     // 6 bits (& 0x3F) after each shift.
     // If the result of step 1 was 1, XOR in 0b000011
 
-    for (uint8_t i = 17; i >= 0; i--)
+    for (int8_t i = 17; i >= 0; i--)
     {
-        temp = (data_18 >> i) ^ (crc >> 7);
+        temp = ((data_18 >> i) & 1) ^ (crc >> 5);
         crc = crc << 1;
         crc &= 0x3F;
 
-        if (temp >> 7 == 1)
+        if (temp == 1)
         {
             crc ^= 0x03;
         }
@@ -44,33 +45,126 @@ void encoder_unpack(uint32_t frame_24, encoder_frame_t *d_out) //frame -> struct
 bool encoder_frame_valid(const encoder_frame_t *frame) //crc matches
 {
     // create the 18 bit variable with data and mg
-    uint32_t data_18 = frame->data & (frame->mg >> 14);
+    uint32_t data_18 = frame->data << 4 | frame->mg;
     return encoder_crc6(data_18) == frame->crc;
 }
 
-int32_t encoder_wrap(uint16_t current, uint16_t prev, uint32_t cpr)
+int32_t encoder_wrap(uint16_t current, uint16_t prev, uint32_t cpr) //cpr == count_per_revolution
 {
+    // mt6701 only knows where the shaft is within 1 turn (0 t0 16383) but we need to keep track of total angle
+    // over many turns. --> so we keep a running count: 
     int32_t data = current - prev;
+    int32_t cnt_per_rev = cpr; 
 
+    if (data >= cnt_per_rev/2)
+    {
+        data -= cnt_per_rev;
+    } 
+    else if (data < -1*cnt_per_rev/2)
+    {
+        data += cnt_per_rev;
+    }
+    
+    return data;
 }
 
 void encoder_init(encoder_t *encoder, const encoder_config_t *cfg)
 {
+    encoder->cfg.cnt_per_rev = cfg->cnt_per_rev;
+    encoder->cfg.gear_ratio = cfg->gear_ratio;
+    encoder->cfg.max_bad_in_row = cfg->max_bad_in_row;
+    encoder->cfg.pll_bandwidth = cfg->pll_bandwidth;
+    encoder->cfg.Ts = cfg->Ts;
 
+    encoder->prev_data = 0;
+    encoder->count = 0;
+    encoder->pos_estimate = 0.0f;
+    encoder->vel_estimate = 0.0f;
+    encoder->Kp = 2.0f * cfg->pll_bandwidth;
+    encoder->Ki = encoder->Kp * encoder->Kp / 4.0f;
+    encoder->crc_err = 0;
+    encoder->field_err = 0;
+    encoder->bad_in_row = 0;
+    encoder->ready = false; // first good frame has happened
 }
 
 encoder_status_t encoder_update(encoder_t *encoder, uint32_t frame_24)
 {
     encoder_frame_t frame;
+    encoder_status_t result;
+
     // unpack the frame 
     encoder_unpack(frame_24, &frame);
+
     // check the crc
     bool valid;
     valid = encoder_frame_valid(&frame);
+
+    if (!valid)
+    {
+        result = ENCODER_ERR_CRC;
+        encoder->bad_in_row++;
+        encoder->crc_err++;
+        return result;
+    }
+    
     // check field status in Mg of the frame
 
-    // wait till you get the first valid frame
+    if ((frame.mg & ENCODER_MG_FIELD_Msk) == ENCODER_MG_FIELD_STRONG)
+    {
+        encoder->field_err++;
+        encoder->bad_in_row++;
+        result = ENCODER_ERR_FIELD_STRONG;
+        return result;
+    }
+    else if ((frame.mg & ENCODER_MG_FIELD_Msk) == ENCODER_MG_FIELD_WEAK)
+    {
+        encoder->field_err++;
+        encoder->bad_in_row++;
+        result = ENCODER_ERR_FIELD_WEAK;
+        return result;
+    }
+    else if ((frame.mg & ENCODER_MG_OVERSPEED_Msk) == 0x8)
+    {
+        encoder->field_err++;
+        encoder->bad_in_row++;
+        result = ENCODER_ERR_OVERSPEED;
+        return result;
+    }
+    
+    if (encoder->ready == false) //first good frame has arrived
+    {
+        encoder->prev_data = frame.data;
+        encoder->count = frame.data;
+        encoder->pos_estimate = encoder->count; //current pos is just the first movement
+        encoder->vel_estimate = 0.0f;
+        encoder->ready = true;
+        encoder->bad_in_row = 0;
+        result = ENCODER_OK;
+        return result;
+    }
+    else //following frames
+    {
+        encoder->count += encoder_wrap(frame.data, encoder->prev_data, encoder->cfg.cnt_per_rev);
+        encoder->prev_data = frame.data;
+        encoder->bad_in_row = 0;
 
+        //run pll --> for guess of pos and vel
+        encoder->pos_estimate += encoder->vel_estimate * encoder->cfg.Ts; //where it should be based on est
+        float err = encoder->count - encoder->pos_estimate; //how far off the guess is from current measurement
+
+        //now adjust pos and vel est closer to reality
+        encoder->pos_estimate += encoder->cfg.Ts * encoder->Kp * err;
+        encoder->vel_estimate += encoder->cfg.Ts * encoder->Ki * err;
+
+        if (fabsf(encoder->vel_estimate) < 0.5f * encoder->cfg.Ts * encoder->Ki) // to account for wobbling between counts so noise
+        {
+            encoder->vel_estimate = 0.0f;
+        }
+
+        result = ENCODER_OK;
+        return result;
+    }
 
 }
 
@@ -93,7 +187,7 @@ float encoder_get_motor_angle(const encoder_t *encoder)
 
 float encoder_get_motor_velocity(const encoder_t *encoder)
 {
-    float v = encoder->vel_estimate * PI_F / encoder->cfg.cnt_per_rev;
+    float v = encoder->vel_estimate * 2 * PI_F / encoder->cfg.cnt_per_rev;
     return v;
 }
 
@@ -105,7 +199,7 @@ float encoder_get_output_angle(const encoder_t *encoder)
 
 float encoder_get_output_velocity(const encoder_t *encoder)
 {
-    float v = encoder->vel_estimate * PI_F / encoder->cfg.cnt_per_rev / encoder->cfg.gear_ratio;
+    float v = encoder->vel_estimate * 2 * PI_F / encoder->cfg.cnt_per_rev / encoder->cfg.gear_ratio;
     return v;
 }
 
