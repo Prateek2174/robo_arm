@@ -101,7 +101,7 @@ bool calibration_circular_mean(const calibration_circular_t *cir, float *mean, f
 float calibration_wrap_2pi(float x)
 {
     //ensure output is between [0, 2pi)
-    return x - 2 * PI_F * (x/2*PI_F);
+    return x - 2.0f * PI_F * floorf(x/(2.0f*PI_F));
 }
 
 float calibration_angle_diff(float start, float end)
