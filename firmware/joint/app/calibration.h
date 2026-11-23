@@ -8,30 +8,26 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct {
-    uint8_t pole_pairs; // 1-50 and equal to motors value when configured
-    int8_t direction;   // -1 or +1
-    float theta_m;      //mechanical rotor angle 
-    float theta_e;      //electrical angle -- magnets d axis relative to phase A
-    float theta_offset;
-    float theta_cmd;
+typedef struct { // OUTPUT STRUCT
+    uint8_t pole_pairs;       // 1-50 and equal to motors value when configured
+    int8_t  dir;              // -1 or +1
+    float   theta_offset;
+    float   theta_offset_ref; // what the stored θ_off is measured from
 } calibration_data_t;
 
 typedef struct {
-    //undecided-----------------------------
+    float    v_d;                   // volt on d-axis during drive phase ---------- v_d = R * calibration curent
+    uint16_t steps_per_ece_turn; 
+    uint16_t align_steps;           // to hold theta_cmd = 0 while rotor settles
+    uint8_t  detect_turns;          // N, ece turns in DETECT state ------------- travel_e = N * 2pi
+    uint8_t  offset_turns; 
+    float    min_travel_m;          // smallest mechanical travel that counts as movement [rad]
+    float    pole_pairs_tolerance; 
+    float    r_min;                 // smallest radius allowed from circular_mean
+    uint8_t  expected_pole_pairs;   // pole_pairs from the datasheet
 } calibration_config_t;
 
-typedef struct {
-    uint8_t phase;
-    uint8_t step_count; //steps taken in current state/phase
-    float cmd_elec_angle; //current location of sweep
-    calibration_travel_t travel;
-    calibration_circular_t offsets; //runing sin/cos sums
-    calibration_result_t error; //if it failed
-    calibration_config_t *cfg;
-} calibration_t;
-
-typedef struct {
+typedef struct { // [CALIBRATION] -------> [FOC_MATH]
     float v_d;
     bool drive;
     float theta_cmd;
@@ -53,19 +49,36 @@ typedef enum {
     CALIBRATION_ERR_POLE_PAIRS  = 2,
     CALIBRATION_ERR_SPREAD      = 3,
     CALIBRATION_ERR_BAD_DATA    = 4,
+    CALIBRATION_ERR_NOT_DONE    = 5,
 } calibration_result_t;
 
 typedef struct {
-    float sum_sin;
-    float sum_cos;
+    float    sum_sin;
+    float    sum_cos;
     uint32_t n;
 } calibration_circular_t;
 
 typedef struct {
     float theta_m_last;
     float travel_m;
-    bool has_last;
+    bool  has_last;
 } calibration_travel_t;
+
+typedef struct { // TEMP STRUCT -------> OUTPUT STRUCT
+    uint16_t step_count;    //steps taken in current state/phase --- 4 turns x 64 steps = 256
+    float    step;
+    float    theta_cmd; //current location of sweep
+    float    theta_cmd_prev;
+    uint8_t  curr_pole_pairs;
+    int8_t   curr_dir;
+    float    theta_offset;
+
+    calibration_state_t    phase;
+    calibration_travel_t   travel;
+    calibration_circular_t offsets; //runing sin/cos sums
+    calibration_result_t   error;   //if it failed
+    calibration_config_t   cfg;
+} calibration_t;
 
 void calibration_travel_reset(calibration_travel_t *travel);
 void calibration_travel_add(calibration_travel_t *travel, float theta_m);

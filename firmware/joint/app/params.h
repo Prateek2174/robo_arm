@@ -14,7 +14,7 @@ typedef enum {
     PARAMS_DEFAULT_CORRUPT, // no copy passed magic/size/CRC
     PARAMS_DEFAULT_VERSION, // unknown version
     PARAMS_DEFAULT_RANGE,   // CRC fine but a value is out of range (NaN, pole_pairs 0, bad node ID)
-} params_status_t
+} params_status_t;
 
 //bump up versoin whenever params_t changes so you can keep track of older versions
 //an unknown version falls back to defaults

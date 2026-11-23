@@ -5,4 +5,6 @@
 #ifndef APP_MAIN_H
 #define APP_MAIN_H
 
+void app_main(void); // call from main.c ----> USER CODE BEGIN 2
+
 #endif // APP_MAIN_H

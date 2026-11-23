@@ -82,6 +82,8 @@ float hall_get_omega_e(const hall_t *hall);
 void hall_on_timeout(hall_t *hall); 
 int32_t hall_get_edge_count(const hall_t *hall);
 
+//------------------------Hardware Required Functions------------------------//
+
 void hall_hardware_init(void);
 uint8_t hall_hardware_read_code(void); // read PB6/PB7/PB8 ----> 3-bit code
 
