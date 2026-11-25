@@ -8,17 +8,23 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+typedef enum { // since MT6701 is an absolute encoder
+    CALIBRATION_REF_ABSOLUTE = 0,
+    CALIBRATION_REF_INDEX    = 1,
+} calibration_offset_ref_t;
+
 typedef struct { // OUTPUT STRUCT
     uint8_t pole_pairs;       // 1-50 and equal to motors value when configured
     int8_t  dir;              // -1 or +1
     float   theta_offset;
-    float   theta_offset_ref; // what the stored θ_off is measured from
+
+    calibration_offset_ref_t offset_ref; // what the stored θ_off is measured from
 } calibration_data_t;
 
 typedef struct {
     float    v_d;                   // volt on d-axis during drive phase ---------- v_d = R * calibration curent
-    uint16_t steps_per_ece_turn; 
-    uint16_t align_steps;           // to hold theta_cmd = 0 while rotor settles
+    uint16_t steps_per_ece_turn;    // 2pi / steps_per_ece_turn = radians per step, more steps increases accuracy and time taken
+    uint16_t align_steps;           // -----MAY NEED TO BE INCREASED WITH LARGER p
     uint8_t  detect_turns;          // N, ece turns in DETECT state ------------- travel_e = N * 2pi
     uint8_t  offset_turns; 
     float    min_travel_m;          // smallest mechanical travel that counts as movement [rad]
@@ -29,7 +35,7 @@ typedef struct {
 
 typedef struct { // [CALIBRATION] -------> [FOC_MATH]
     float v_d;
-    bool drive;
+    bool  drive;
     float theta_cmd;
 } calibration_output_t;
 
@@ -68,7 +74,6 @@ typedef struct { // TEMP STRUCT -------> OUTPUT STRUCT
     uint16_t step_count;    //steps taken in current state/phase --- 4 turns x 64 steps = 256
     float    step;
     float    theta_cmd; //current location of sweep
-    float    theta_cmd_prev;
     uint8_t  curr_pole_pairs;
     int8_t   curr_dir;
     float    theta_offset;

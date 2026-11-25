@@ -14,7 +14,14 @@
 float calibration_wrap_2pi(float x)
 {
     //ensure output is between [0, 2pi)
-    return x - 2.0f * PI_F * floorf(x/(2.0f*PI_F));
+    float theta = x - 2.0f * PI_F * floorf(x/(2.0f*PI_F));
+
+    if (theta >= 2.0f * PI_F)
+    {
+        return 0.0f;
+    }
+    
+    return theta;
 }
 
 float calibration_angle_diff(float start, float end)
@@ -45,15 +52,12 @@ bool calibration_is_valid(const calibration_data_t *data, uint8_t expected_pole_
             {
                 if (isfinite(data->theta_offset))
                 {
-                    if (data->theta_offset >= 0 && data->theta_offset <= 2.0f*PI_F)
+                    if (data->theta_offset >= 0 && data->theta_offset < 2.0f*PI_F)
                     {
                         is_valid = true;
                     }
-                    
                 }
-                
             }
-            
         }
     }
 
@@ -89,6 +93,7 @@ void calibration_travel_add(calibration_travel_t *travel, float theta_m)
 calibration_result_t calibration_detect_direction(float travel_m, float min_travel_m, int8_t *dir)
 {   
     calibration_result_t result;
+
     if (fabsf(travel_m) < min_travel_m)
     {
         result = CALIBRATION_ERR_NO_MOTION;
@@ -167,48 +172,65 @@ bool calibration_circular_mean(const calibration_circular_t *cir, float *mean, f
 
 void calibration_start(calibration_t *cal, const calibration_config_t *cfg)
 {
-    // resets the context and stores the config
-    calibration_travel_reset(&cal->travel);
-    calibration_circular_reset(&cal->offsets);
-    cal->cfg = *cfg;
-    cal->step = 2*PI_F / cal->cfg.steps_per_ece_turn;
-    cal->phase = CALIBRATION_STATE_ALIGN; // reset state
-    cal->error = CALIBRATION_OK;
-    cal->step_count = 0;
-    cal->theta_cmd = 0;
-    cal->theta_cmd_prev = 0;
+    // check steps_per_ece_turn so it doesnt /0
 
-    cal->curr_pole_pairs = 0;
-    cal->curr_dir = 0;
-    cal->theta_offset = 0;
+    if (cfg->steps_per_ece_turn == 0)
+    {
+        cal->error = CALIBRATION_ERR_BAD_DATA;
+        cal->phase = CALIBRATION_STATE_FAILED;
+    }
+    else
+    {
+        // resets the context and stores the config
+        calibration_travel_reset(&cal->travel);
+        calibration_circular_reset(&cal->offsets);
+        cal->cfg = *cfg;
+        cal->step = 2*PI_F / (float)cal->cfg.steps_per_ece_turn;
+        cal->phase = CALIBRATION_STATE_ALIGN; // reset state
+        cal->error = CALIBRATION_OK;
+        cal->step_count = 0;
+        cal->theta_cmd = 0;
+        cal->curr_pole_pairs = 0;
+        cal->curr_dir = 0;
+        cal->theta_offset = 0;
+    }
 }
 
 calibration_output_t calibration_step(calibration_t *cal, float theta_m)
 {  
     calibration_output_t out;
     out.v_d = cal->cfg.v_d;
+    out.theta_cmd = cal->theta_cmd;
     out.drive = false; 
 
     calibration_result_t result;
 
-    if (cal->phase == CALIBRATION_STATE_ALIGN)
+    if (cal->phase == CALIBRATION_STATE_ALIGN) // ALIGN: Holds θ_cmd = 0 at V_d and waits
     {
-        // ALIGN: Holds θ_cmd = 0 at V_d and waits
-        
-        out.theta_cmd = 0;
-        out.drive = true;
-        // counts align_steps then move on to ---> DETECT 
-        return out;
-    }
-    else if (cal->phase == CALIBRATION_STATE_DETECT) 
-    {
-        //DETECT: Sweeps forward, then works out direction and pole pairs
 
+        if (cal->step_count < cal->cfg.align_steps) // keep counting
+        {
+            cal->step_count++;
+            out.theta_cmd = 0;
+            out.drive = true;
+            return out;
+        }
+        else // align is over
+        {
+            cal->phase = CALIBRATION_STATE_DETECT; // move on to next state
+            cal->step_count = 0;
+            calibration_travel_reset(&cal->travel);
+            out.drive = true;
+            return out;
+        }
+    }
+    else if (cal->phase == CALIBRATION_STATE_DETECT) //DETECT: Sweeps forward, then works out direction and pole pairs
+    {
         calibration_travel_add(&cal->travel, theta_m); // record the change in rotor
 
         // check to see if the sweep finished by checking step count
 
-        if (cal->step_count >= (cal->cfg.detect_turns * cal->cfg.steps_per_ece_turn)) // if the sweep is over
+        if (cal->step_count >= (cal->cfg.detect_turns * cal->cfg.steps_per_ece_turn)) // if the sweep is over get dir and p
         {
             // get direction and check for any error
 
@@ -243,37 +265,92 @@ calibration_output_t calibration_step(calibration_t *cal, float theta_m)
             }
             
             cal->phase = CALIBRATION_STATE_OFFSET_BACK;
+            out.drive = true;
             cal->step_count = 0;
             calibration_circular_reset(&cal->offsets);
         }
         else // continue the sweep
         {
-            cal->theta_cmd_prev = cal->theta_cmd;
             cal->theta_cmd += cal->step;
-            out.theta_cmd += cal->theta_cmd;
+            out.theta_cmd = cal->theta_cmd;
             cal->step_count++;
             out.drive = true;
             return out;
         }
-        
     }
-    else if (cal->phase == CALIBRATION_STATE_OFFSET_BACK || cal->phase == CALIBRATION_STATE_OFFSET_FWD)
+    else if (cal->phase == CALIBRATION_STATE_OFFSET_BACK)
     {
-        //OFFSET: Sweeps both ways, collecting offset estimates
-        //------- uses: cal_offset_sample, cal_circular_add
+        float sample;
+        sample = calibration_offset_sample(theta_m, cal->theta_cmd, cal->curr_pole_pairs, cal->curr_dir);
+        calibration_circular_add(&cal->offsets, sample);
 
-        //7. Forward/backward cancels lag
-
-        // DONE: end of sweeps --> combines the offsets and checks them
-    
-        float mean;
-        float r;
-        bool check;
-        check = calibration_circular_mean(&cal->offsets, &mean, &r);
-        calibration_is_valid();
-
+        if (cal->step_count >= (cal->cfg.offset_turns * cal->cfg.steps_per_ece_turn)) // sweep is over
+        {
+            cal->step_count = 0;
+            cal->phase = CALIBRATION_STATE_OFFSET_FWD;
+            out.drive = true;
+        }
+        else // continue the sweep
+        {
+            cal->theta_cmd -= cal->step;
+            out.theta_cmd = cal->theta_cmd;
+            cal->step_count++;
+            out.drive = true;
+            return out;
+        }
     }
+    else if (cal->phase == CALIBRATION_STATE_OFFSET_FWD)
+    {
+        float sample;
+        sample = calibration_offset_sample(theta_m, cal->theta_cmd, cal->curr_pole_pairs, cal->curr_dir);
+        calibration_circular_add(&cal->offsets, sample);
 
+        if (cal->step_count >= (cal->cfg.offset_turns * cal->cfg.steps_per_ece_turn)) // DONE: end of sweeps --> combines the offsets and checks them
+        {
+            float mean;
+            float r;
+            bool check;
+            check = calibration_circular_mean(&cal->offsets, &mean, &r);
+
+            if (!check || r < cal->cfg.r_min) // make sure the radius > min and successful
+            {
+                cal->error = CALIBRATION_ERR_SPREAD;
+                cal->phase = CALIBRATION_STATE_FAILED;
+                return out;
+            }
+            
+            cal->theta_offset = mean;
+
+            // create a temp calibration_data_t to test the collected data to ma0ke sure its valid
+
+            calibration_data_t data;
+
+            data.dir = cal->curr_dir;
+            data.pole_pairs = cal->curr_pole_pairs;
+            data.theta_offset = cal->theta_offset;
+            data.offset_ref = CALIBRATION_REF_ABSOLUTE;
+
+            check = calibration_is_valid(&data, cal->cfg.expected_pole_pairs);
+
+            if (!check) 
+            {
+                cal->error = CALIBRATION_ERR_BAD_DATA;
+                cal->phase = CALIBRATION_STATE_FAILED; 
+                return out;
+            }
+
+            cal->phase = CALIBRATION_STATE_DONE;
+            out.drive = false;
+        }
+        else // continue the sweep
+        {
+            cal->theta_cmd += cal->step;
+            out.theta_cmd = cal->theta_cmd;
+            cal->step_count++;
+            out.drive = true;
+            return out;
+        }
+    }
     return out;
 }
 
@@ -287,19 +364,22 @@ calibration_state_t calibration_state(const calibration_t *cal)
 
 calibration_result_t calibration_result(const calibration_t *cal, calibration_data_t *d_out)
 {
-    //Copies out calibration_data_t for params to save
-
     // If the phase is FAILED, return cal->error, the reason it failed, and don't touch d_out.
 
-    // If the phase is not DONE yet (still running, or never started), return an error without touching d_out. 
-    // You don't have an enum value for "not finished", so add one, e.g. CALIBRATION_ERR_NOT_DONE. 
-    // Otherwise params could save a half-finished result.
-
-    // If the phase is DONE, copy found_pole_pairs → pole_pairs, 
-    // found_dir → dir and theta_off → theta_off, set offset_ref, 
-    // set R and L to 0 (not measured), then return CALIBRATION_OK.
-
-    d_out->dir = cal->curr_dir;
-    d_out->pole_pairs = cal->curr_pole_pairs;
-    d_out->theta_offset = cal->theta_offset;
+    if (cal->phase == CALIBRATION_STATE_FAILED)
+    {
+        return cal->error;
+    }
+    else if (cal->phase == CALIBRATION_STATE_DONE) // done
+    {
+        d_out->dir = cal->curr_dir;
+        d_out->pole_pairs = cal->curr_pole_pairs;
+        d_out->theta_offset = cal->theta_offset;
+        d_out->offset_ref = CALIBRATION_REF_ABSOLUTE;
+        return CALIBRATION_OK;
+    }
+    else // still running -- not done
+    {
+        return CALIBRATION_ERR_NOT_DONE;
+    }
 }
