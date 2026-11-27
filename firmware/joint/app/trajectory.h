@@ -23,22 +23,22 @@ typedef struct {
 typedef struct {
     float v_max;
     float a_max;
-} trajectry_limits_t;
+} trajectory_limits_t;
 
 typedef struct {
     float x_i;      // start position
     float x_f;      // end position
-    float a;      // signed acceleration
-    float v_peak;      // signed cruise or peak velocity
+    float a;        // signed acceleration
+    float v_peak;   // signed cruise or peak velocity
     float t_a;      // accel time
     float t_v;      // cruise time
     float t_f;      // total time
-    float y_a;  // position at end of accel phase
+    float y_a;      // position at end of accel phase
 } trajectory_plan_t;
 
-//Plan a move for the join that starts/ends at rest.
+//Plan a move for the joint that starts/ends at rest.
 //Return false (plan unchanged) -> if(limits are <=0 OR NaN OR infinite OR positions arent finite)
-bool trajectory_plan(trajectory_plan_t *plan, float d_start, float d_end, const trajectry_limits_t *limit);
+bool trajectory_plan(trajectory_plan_t *plan, float d_start, float d_end, const trajectory_limits_t *limit);
 //instant at time t since the move started
 //t <0 returns the start
 //t >= duration returns the exact end with v = a = 0

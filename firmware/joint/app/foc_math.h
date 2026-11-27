@@ -6,32 +6,24 @@
 #define FOC_MATH_H
 
 typedef struct {
-
     float a;
     float b;
     float c;
-
 } abc_t;
 
 typedef struct {
-
     float alpha;
     float beta;
-
 } alpha_beta_t;
 
 typedef struct {
-
     float d;
     float q;
-
 } dq_t;
 
 typedef struct {
-
     float s;
     float c;
-
 } sin_cos_t;
 
 void theta_to_sin_cos(float theta, sin_cos_t *sc);
